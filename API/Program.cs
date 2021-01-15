@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Persistance;
 using Microsoft.Extensions.Logging;
 using System;
+using Persistance.Migrations;
 
 namespace API
 {
@@ -21,6 +22,7 @@ namespace API
                 {
                     var context = services.GetRequiredService<DataContext>();
                     context.Database.Migrate();
+                    Seed.SeedData(context);
                 }
                 catch (Exception ex)
                 {
