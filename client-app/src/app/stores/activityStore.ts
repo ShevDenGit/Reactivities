@@ -5,15 +5,14 @@ import { IActivity } from "../models/activity";
 
 class ActivityStore {
     @observable activityRegistry = new Map();
-    @observable activities: IActivity[] = [];
-    @observable selectedActivity: IActivity | undefined;
+    @observable activity: IActivity | null = null;
     @observable loadingInitial = false;
-    @observable editMode = false;
     @observable submitting = false;
     @observable target = '';
 
     @computed get activitiesByDate () {
-        return Array.from(this.activityRegistry.values()).slice().sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+        return Array.from(this.activityRegistry.values())
+        .slice().sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
     }
 
     @action loadActivities = async () => {
@@ -35,13 +34,39 @@ class ActivityStore {
         }
     };
 
+    @action loadActivity = async (id: string) => {
+        let activity = this.getActivity(id);
+        if (activity) {
+            this.activity = activity;
+        } else {
+            this.loadingInitial = true;
+            try {
+                activity = await agent.Activities.details(id);
+                runInAction(() => {
+                    this.activity = activity;
+                })
+            } catch (error) {
+                console.log(error);
+            } finally {
+                this.loadingInitial = false;
+            }
+        }
+    }
+
+    @action clearActivity =  () => {
+        this.activity = null;
+    }
+
+    getActivity = (id: string) => {
+        return this.activityRegistry.get(id);
+    }
+
     @action createActivity = async (activity: IActivity) => {
         this.submitting = true;
         try {
             await agent.Activities.create(activity);
             runInAction(() => {
                 this.activityRegistry.set(activity.id, activity);
-                this.editMode = false;
             });
         } catch (error) {
             console.log(error);
@@ -58,8 +83,7 @@ class ActivityStore {
             await agent.Activities.update(activity);
             runInAction(() => {
                 this.activityRegistry.set(activity.id, activity);
-                this.selectedActivity = activity;
-                this.editMode = false;
+                this.activity = activity;
             });
         } catch (error) {
             console.log(error);
@@ -77,7 +101,6 @@ class ActivityStore {
             await agent.Activities.delete(id);
             runInAction(() => {
                 this.activityRegistry.delete(id);
-                this.editMode = false;
             });
         } catch (error) {
             console.log(error);
@@ -88,29 +111,6 @@ class ActivityStore {
             });
         }
     }
-
-    @action cancelSelectedActivity = () => {
-        this.selectedActivity = undefined;
-    }
-
-    @action cancelFormOpen = () => {
-        this.editMode = false;
-    }
-
-    @action openEditForm = (id: string) => {
-        this.editMode = true;
-        this.selectedActivity = this.activityRegistry.get(id);
-    };
-
-    @action openCreateForm = () => {
-        this.editMode = true;
-        this.selectedActivity = undefined;
-    };
-
-    @action selectActivity = (id: string) => {
-        this.selectedActivity = this.activityRegistry.get(id);
-        this.editMode = false;
-    };
 
     constructor() {
         makeObservable(this);
